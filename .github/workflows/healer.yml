@@ -1,185 +1,293 @@
-name: 🔧 Repo Healer
+name: 🔧 Heal Missing Files
 
 on:
   push:
-    branches: [main, master]
-  workflow_dispatch:  # Manual trigger
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
-  diagnose-and-heal:
+  heal:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: 🔍 Diagnose Issues
-        id: diagnose
+      - name: 🔍 Check & Create Missing Files
         run: |
-          echo "=== DIAGNOSIS ==="
-          
-          # Check 1: Is package.json present?
-          if [ ! -f "package.json" ]; then
-            echo "❌ MISSING: package.json"
-            echo "package_missing=true" >> $GITHUB_OUTPUT
-          else
-            echo "✅ package.json found"
-          fi
-          
-          # Check 2: Is .github/workflows present?
-          if [ ! -d ".github/workflows" ]; then
-            echo "❌ MISSING: .github/workflows directory"
-            echo "workflows_missing=true" >> $GITHUB_OUTPUT
-          else
-            echo "✅ .github/workflows found"
-          fi
-          
-          # Check 3: Is next.config.js present?
-          if [ ! -f "next.config.js" ] && [ ! -f "next.config.ts" ] && [ ! -f "next.config.mjs" ]; then
-            echo "❌ MISSING: next.config.js"
-            echo "config_missing=true" >> $GITHUB_OUTPUT
-          else
-            echo "✅ next.config found"
-          fi
-          
-          # Check 4: Check package.json content
-          if [ -f "package.json" ]; then
-            if ! grep -q '"next"' package.json; then
-              echo "❌ ERROR: Next.js not in dependencies"
-              echo "next_missing=true" >> $GITHUB_OUTPUT
-            fi
-            
-            if ! grep -q '"build"' package.json; then
-              echo "❌ ERROR: No build script"
-              echo "build_script_missing=true" >> $GITHUB_OUTPUT
-            fi
-          fi
+          # Create LevelNavigator if missing
+          if [ ! -f "components/LevelNavigator.tsx" ]; then
+            mkdir -p components
+            cat > components/LevelNavigator.tsx << 'EOF'
+'use client';
 
-      - name: 🏥 Heal Missing Files
-        if: steps.diagnose.outputs.package_missing == 'true' || steps.diagnose.outputs.config_missing == 'true'
-        run: |
-          echo "=== HEALING ==="
-          
-          # Create package.json if missing
-          if [ ! -f "package.json" ]; then
-            echo "Creating package.json..."
-            cat > package.json << 'EOF'
-{
-  "name": "trident-sentient",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "type-check": "tsc --noEmit"
-  },
-  "dependencies": {
-    "next": "14.2.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "framer-motion": "^11.0.0",
-    "zustand": "^4.5.0",
-    "lucide-react": "^0.300.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/react": "^18.2.0",
-    "typescript": "^5.3.0",
-    "tailwindcss": "^3.4.0",
-    "postcss": "^8.4.0",
-    "autoprefixer": "^10.4.0"
-  }
-}
-EOF
-          fi
-          
-          # Create next.config.js if missing
-          if [ ! -f "next.config.js" ] && [ ! -f "next.config.ts" ] && [ ! -f "next.config.mjs" ]; then
-            echo "Creating next.config.js..."
-            cat > next.config.js << 'EOF'
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  output: 'export',
-  distDir: 'out',
-  images: {
-    unoptimized: true,
-  },
+import { motion } from 'framer-motion';
+import { Level, LEVELS } from '@/types/sentient';
+import { Mic, Sparkles, Eye, Network, Brain, Circle } from 'lucide-react';
+
+interface LevelNavigatorProps {
+  currentLevel: Level;
+  onLevelChange: (level: Level) => void;
+  isListening: boolean;
+  onVoiceToggle: () => void;
 }
 
-module.exports = nextConfig
-EOF
-          fi
-          
-          # Create tailwind.config.ts if missing
-          if [ ! -f "tailwind.config.ts" ] && [ ! -f "tailwind.config.js" ]; then
-            echo "Creating tailwind.config.ts..."
-            cat > tailwind.config.ts << 'EOF'
-import type { Config } from 'tailwindcss'
+const levelIcons: Record<Level, React.ReactNode> = {
+  void: <Circle className="w-5 h-5" />,
+  voice: <Mic className="w-5 h-5" />,
+  generate: <Sparkles className="w-5 h-5" />,
+  preview: <Eye className="w-5 h-5" />,
+  network: <Network className="w-5 h-5" />,
+  self: <Brain className="w-5 h-5" />,
+};
 
-const config: Config = {
-  content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
-  ],
-  theme: {
-    extend: {
-      colors: {
-        void: '#0a0a0a',
-        voice: '#1a1a2e',
-        generate: '#16213e',
-        preview: '#0f3460',
-        network: '#533483',
-        self: '#e94560',
-      },
-    },
-  },
-  plugins: [],
-}
-
-export default config
-EOF
-          fi
-          
-          # Create tsconfig.json if missing
-          if [ ! -f "tsconfig.json" ]; then
-            echo "Creating tsconfig.json..."
-            cat > tsconfig.json << 'EOF'
-{
-  "compilerOptions": {
-    "target": "ES2020",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
-    "plugins": [{ "name": "next" }],
-    "paths": {
-      "@/*": ["./*"]
-    }
-  },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+export function LevelNavigator({ currentLevel, onLevelChange, isListening, onVoiceToggle }: LevelNavigatorProps) {
+  const levels: Level[] = ['void', 'voice', 'generate', 'preview', 'network', 'self'];
+  
+  return (
+    <motion.div className="fixed bottom-0 left-0 right-0 z-50" initial={{ y: 100 }} animate={{ y: 0 }}>
+      <div className="bg-white/10 backdrop-blur-lg mx-4 mb-4 rounded-2xl p-2">
+        <div className="flex items-center justify-around">
+          {levels.map((level) => {
+            const isActive = currentLevel === level;
+            const config = LEVELS.find(l => l.id === level);
+            return (
+              <motion.button
+                key={level}
+                onClick={() => level === 'voice' ? onVoiceToggle() : onLevelChange(level)}
+                className={`flex flex-col items-center p-3 rounded-xl ${isActive ? 'bg-white/20' : ''}`}
+              >
+                {levelIcons[level]}
+                <span className="text-xs mt-1">{config?.name}</span>
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+    </motion.div>
+  );
 }
 EOF
+            echo "✅ Created LevelNavigator.tsx"
           fi
 
-      - name: 📁 Create Directory Structure
-        run: |
-          mkdir -p app
-          mkdir -p components
-          mkdir -p hooks
-          mkdir -p lib
-          mkdir -p types
-          mkdir -p .github/workflows
+          # Create VoiceInterface if missing
+          if [ ! -f "components/VoiceInterface.tsx" ]; then
+            mkdir -p components
+            cat > components/VoiceInterface.tsx << 'EOF'
+'use client';
+
+import { motion } from 'framer-motion';
+
+interface VoiceInterfaceProps {
+  isListening: boolean;
+  transcript: string;
+  onStart: () => void;
+  onStop: () => void;
+}
+
+export function VoiceInterface({ isListening, transcript, onStart, onStop }: VoiceInterfaceProps) {
+  return (
+    <motion.div className="flex flex-col items-center">
+      <motion.button
+        onClick={isListening ? onStop : onStart}
+        className="w-32 h-32 rounded-full bg-white/10 flex items-center justify-center"
+        animate={{ scale: isListening ? [1, 1.2, 1] : 1 }}
+      >
+        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+        </svg>
+      </motion.button>
+      <p className="mt-4">{transcript || (isListening ? 'Listening...' : 'Tap to speak')}</p>
+    </motion.div>
+  );
+}
+EOF
+            echo "✅ Created VoiceInterface.tsx"
+          fi
+
+          # Create MorphingSurface if missing
+          if [ ! -f "components/MorphingSurface.tsx" ]; then
+            mkdir -p components
+            cat > components/MorphingSurface.tsx << 'EOF'
+'use client';
+
+import { motion } from 'framer-motion';
+import { Level } from '@/types/sentient';
+import { ReactNode } from 'react';
+
+interface MorphingSurfaceProps {
+  level: Level;
+  children: ReactNode;
+}
+
+export function MorphingSurface({ level, children }: MorphingSurfaceProps) {
+  return (
+    <motion.div className="absolute inset-0 flex items-center justify-center p-6">
+      <div className="relative z-10 w-full max-w-4xl">{children}</div>
+    </motion.div>
+  );
+}
+EOF
+            echo "✅ Created MorphingSurface.tsx"
+          fi
+
+          # Create NetworkMesh if missing
+          if [ ! -f "components/NetworkMesh.tsx" ]; then
+            mkdir -p components
+            cat > components/NetworkMesh.tsx << 'EOF'
+'use client';
+
+export function NetworkMesh() {
+  return <div className="absolute inset-0 pointer-events-none opacity-30" />;
+}
+EOF
+            echo "✅ Created NetworkMesh.tsx"
+          fi
+
+          # Create types if missing
+          if [ ! -f "types/sentient.ts" ]; then
+            mkdir -p types
+            cat > types/sentient.ts << 'EOF'
+export type Level = 'void' | 'voice' | 'generate' | 'preview' | 'network' | 'self';
+
+export interface Intent {
+  raw: string;
+  confidence: number;
+  category: 'create' | 'modify' | 'deploy' | 'query' | 'connect' | 'learn';
+  parameters: Record<string, any>;
+}
+
+export interface Generation {
+  id: string;
+  intent: Intent;
+  code: string;
+  timestamp: number;
+  reward: number;
+}
+
+export const LEVELS = [
+  { id: 'void', name: 'Void', color: '#0a0a0a' },
+  { id: 'voice', name: 'Listen', color: '#1a1a2e' },
+  { id: 'generate', name: 'Create', color: '#16213e' },
+  { id: 'preview', name: 'Preview', color: '#0f3460' },
+  { id: 'network', name: 'Network', color: '#533483' },
+  { id: 'self', name: 'Self', color: '#e94560' },
+] as const;
+EOF
+            echo "✅ Created types/sentient.ts"
+          fi
+
+          # Create lib/level-state.ts if missing
+          if [ ! -f "lib/level-state.ts" ]; then
+            mkdir -p lib
+            cat > lib/level-state.ts << 'EOF'
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { Level, Intent, Generation } from '@/types/sentient';
+
+interface LevelState {
+  currentLevel: Level;
+  activeIntent: Intent | null;
+  activeGeneration: Generation | null;
+  setLevel: (level: Level) => void;
+  setIntent: (intent: Intent | null) => void;
+  setGeneration: (gen: Generation | null) => void;
+}
+
+export const useLevelStore = create<LevelState>()(
+  persist(
+    (set) => ({
+      currentLevel: 'void',
+      activeIntent: null,
+      activeGeneration: null,
+      setLevel: (level) => set({ currentLevel: level }),
+      setIntent: (intent) => set({ activeIntent: intent }),
+      setGeneration: (gen) => set({ activeGeneration: gen }),
+    }),
+    { name: 'trident-storage' }
+  )
+);
+EOF
+            echo "✅ Created lib/level-state.ts"
+          fi
+
+          # Create hooks/useVoice.ts if missing
+          if [ ! -f "hooks/useVoice.ts" ]; then
+            mkdir -p hooks
+            cat > hooks/useVoice.ts << 'EOF'
+'use client';
+
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { Intent } from '@/types/sentient';
+
+export function useVoice(onResult?: (intent: Intent) => void) {
+  const [isListening, setIsListening] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: any) => {
+      let final = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) final += event.results[i][0].transcript;
+      }
+      setTranscript(final);
+      if (final && onResult) {
+        onResult({ raw: final, confidence: 0.9, category: 'create', parameters: {} });
+      }
+    };
+
+    recognitionRef.current = recognition;
+  }, [onResult]);
+
+  const startListening = useCallback(() => {
+    setTranscript('');
+    setIsListening(true);
+    recognitionRef.current?.start();
+  }, []);
+
+  const stopListening = useCallback(() => {
+    setIsListening(false);
+    recognitionRef.current?.stop();
+  }, []);
+
+  return { isListening, transcript, startListening, stopListening, error: null };
+}
+EOF
+            echo "✅ Created hooks/useVoice.ts"
+          fi
+
+          # Create hooks/useLearning.ts if missing
+          if [ ! -f "hooks/useLearning.ts" ]; then
+            mkdir -p hooks
+            cat > hooks/useLearning.ts << 'EOF'
+'use client';
+
+import { useState, useCallback } from 'react';
+import { Intent } from '@/types/sentient';
+
+export function useLearning() {
+  const [isReady] = useState(true);
+  
+  const predict = useCallback(async (intent: Intent): Promise<number[]> => {
+    return new Array(8).fill(0.5);
+  }, []);
+
+  const learn = useCallback(async () => {}, []);
+  
+  return { isReady, predict, learn, saveModel: async () => {}, loadModel: async () => false };
+}
+EOF
+            echo "✅ Created hooks/useLearning.ts"
+          fi
 
       - name: 📝 Commit Healed Files
         run: |
@@ -189,40 +297,9 @@ EOF
           git add -A
           
           if git diff --staged --quiet; then
-            echo "✅ No changes needed - repo is healthy!"
+            echo "✅ All files present - no healing needed!"
           else
-            git commit -m "🔧 Heal: Add missing config files [skip ci]"
+            git commit -m "🔧 Heal: Add missing components and files"
             git push
             echo "✅ Healed and pushed fixes!"
           fi
-
-  # Deploy after healing
-  deploy:
-    runs-on: ubuntu-latest
-    needs: diagnose-and-heal
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    
-    steps:
-      - name: Checkout (fresh)
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build
-        run: npm run build
-
-      - name: Deploy to Netlify
-        uses: nwtgck/actions-netlify@v3.0
-        with:
-          publish-dir: './out'
-          production-deploy: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
