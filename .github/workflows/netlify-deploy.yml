@@ -1,108 +1,46 @@
-name: Deploy to Netlify
+name: Deploy
 
 on:
   push:
-    branches: [main, develop]
-  pull_request:
     branches: [main]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
-  # Build and test
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Type check
-        run: npx tsc --noEmit
-
-      - name: Build
-        run: npm run build
-        env:
-          NETLIFY_NEXT_PLUGIN_SKIP: true
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+          node-version: '24'
+      
+      - run: npm install
+      
+      - run: npm run build
+      
+      - uses: actions/upload-artifact@v4
         with:
           name: build-files
           path: out/
 
-  # Deploy preview on PRs
-  deploy-preview:
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download build
-        uses: actions/download-artifact@v4
-        with:
-          name: build-files
-          path: out/
-
-      - name: Deploy to Netlify Preview
-        uses: nwtgck/actions-netlify@v3.0
-        with:
-          publish-dir: './out'
-          production-deploy: false
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          deploy-message: "Preview deploy from GitHub Actions"
-          enable-pull-request-comment: true
-          enable-commit-comment: false
-          overwrites-pull-request-comment: true
-          alias: deploy-preview-${{ github.event.number }}
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-
-  # Deploy production on main
   deploy-production:
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main'
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download build
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: build-files
           path: out/
 
-      - name: Deploy to Netlify Production
-        uses: nwtgck/actions-netlify@v3.0
+      - uses: nwtgck/actions-netlify@v3.0
         with:
           publish-dir: './out'
           production-deploy: true
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          deploy-message: "Production deploy v${{ github.run_number }}"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-
-      - name: Create Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ github.run_number }}
-          release_name: 🌊 Trident Sentient v${{ github.run_number }}
-          body: |
-            **Auto-deployed to Netlify**
-            
-            Changes: ${{ github.event.head_commit.message }}
-            
-            [View Live](https://your-site.netlify.app)
