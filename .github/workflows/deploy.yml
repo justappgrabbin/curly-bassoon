@@ -1,39 +1,30 @@
-name: Deploy Trident Sentient
+name: Deploy
 
 on:
   push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    branches: [main]
 
 jobs:
-  setup-and-build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
-
-      # Check and create missing config files
-      - name: Ensure config files exist
-        run: |
-          # Create next.config.js if missing
-          if [ ! -f "next.config.js" ]; then
-            echo "Creating next.config.js..."
-            cat > next.config.js << 'EOF'
-          /** @type {import('next').NextConfig} */
-          const nextConfig = {
-            output: 'export',
-            distDir: 'out',
-            images: { unoptimized: true },
-          }
+      
+      - run: npm install
+      
+      - run: npm run build
+      
+      - uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: './out'
+          production-deploy: true
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           module.exports = nextConfig
           EOF
           fi
