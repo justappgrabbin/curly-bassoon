@@ -25,7 +25,7 @@ import { Mic, Sparkles, Eye, Network, Brain, Circle } from 'lucide-react';
 
 interface LevelNavigatorProps {
   currentLevel: Level;
-  onLevelChange: (level; Level) => void;
+  onLevelChange: (level: Level) => void;
   isListening: boolean;
   onVoiceToggle: () => void;
 }
